@@ -15,6 +15,7 @@ const SLASH_BPS: i128 = 5000;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContractError {
     InsufficientFunds = 1,
+    DuplicateVouch = 2,
 }
 
 // ── Storage Keys ──────────────────────────────────────────────────────────────
@@ -63,12 +64,8 @@ impl QuorumCreditContract {
     }
 
     /// Stake XLM to vouch for a borrower.
-    pub fn vouch(env: Env, voucher: Address, borrower: Address, stake: i128) {
+    pub fn vouch(env: Env, voucher: Address, borrower: Address, stake: i128) -> Result<(), ContractError> {
         voucher.require_auth();
-
-        // Transfer stake from voucher into the contract.
-        let token = Self::token(&env);
-        token.transfer(&voucher, &env.current_contract_address(), &stake);
 
         let mut vouches: Vec<VouchRecord> = env
             .storage()
@@ -76,10 +73,23 @@ impl QuorumCreditContract {
             .get(&DataKey::Vouches(borrower.clone()))
             .unwrap_or(Vec::new(&env));
 
+        // Check for duplicate vouch
+        for v in vouches.iter() {
+            if v.voucher == voucher {
+                return Err(ContractError::DuplicateVouch);
+            }
+        }
+
+        // Transfer stake from voucher into the contract.
+        let token = Self::token(&env);
+        token.transfer(&voucher, &env.current_contract_address(), &stake);
+
         vouches.push_back(VouchRecord { voucher, stake });
         env.storage()
             .persistent()
             .set(&DataKey::Vouches(borrower), &vouches);
+        
+        Ok(())
     }
 
     /// Disburse a microloan if total vouched stake meets the threshold.
@@ -333,5 +343,28 @@ mod tests {
             Err(Ok(ContractError::InsufficientFunds)),
             "expected InsufficientFunds error when contract balance < loan amount"
         );
+    }
+
+    #[test]
+    fn test_duplicate_vouch_should_fail() {
+        let env = Env::default();
+        let (contract_id, _token_addr, _admin, borrower, voucher) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+
+        // First vouch should succeed
+        client.vouch(&voucher, &borrower, &1_000_000);
+
+        // Second vouch from same voucher for same borrower should fail
+        let result = client.try_vouch(&voucher, &borrower, &500_000);
+        assert_eq!(
+            result,
+            Err(Ok(ContractError::DuplicateVouch)),
+            "expected DuplicateVouch error when same voucher tries to vouch twice for same borrower"
+        );
+
+        // Verify only one vouch record exists
+        let vouches = client.get_vouches(&borrower);
+        assert_eq!(vouches.len(), 1);
+        assert_eq!(vouches.get(0).unwrap().stake, 1_000_000);
     }
 }
