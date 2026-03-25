@@ -89,6 +89,9 @@ pub enum DataKey {
     Paused,              // bool: true when contract is paused
     LoanDuration,        // u64 configurable loan duration in seconds
     ReputationNft,       // Address of the ReputationNftContract
+
+    Config,              // Config struct: all configurable protocol parameters
+
     Loan(Address),           // borrower → LoanRecord
     Vouches(Address),        // borrower → Vec<VouchRecord>
     VoucherHistory(Address), // voucher → Vec<Address> (borrowers backed)
@@ -117,7 +120,7 @@ pub enum DataKey {
     YieldBps,         // i128 yield in basis points
     SlashBps,         // i128 slash penalty in basis points
     PendingAdmin,     // Address of the pending admin (two-step transfer)
-    ProtocolFeeBps,   // u32: protocol fee in basis points
+  main
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -641,7 +644,11 @@ impl QuorumCreditContract {
             .persistent()
             .set(&DataKey::Loan(borrower.clone()), &loan);
 
-        // Mint one reputation point for primary borrower and all co-borrowers.
+
+        env.events().publish(
+            (symbol_short!("loan"), symbol_short!("repaid")),
+            (borrower.clone(), loan.amount),
+        );
         // Increment successful repayment count for the borrower.
         let count: u32 = env
             .storage()
@@ -1834,6 +1841,38 @@ mod tests {
     }
 
     #[test]
+    fn test_repay_emits_event() {
+        use soroban_sdk::{IntoVal, Val};
+
+        let env = Env::default();
+        env.ledger().set_timestamp(1_000_000);
+        let (contract_id, _token_addr, _admin, borrower, voucher) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+
+        client.vouch(&voucher, &borrower, &1_000_000);
+        client.request_loan(&borrower, &500_000, &1_000_000);
+        client.repay(&borrower);
+
+        let topic_loan: Val = symbol_short!("loan").into_val(&env);
+        let topic_repaid: Val = symbol_short!("repaid").into_val(&env);
+
+        let (_, _, data) = env
+            .events()
+            .all()
+            .iter()
+            .find(|(_, topics, _)| {
+                topics.len() == 2
+                    && topics.get_unchecked(0).get_payload() == topic_loan.get_payload()
+                    && topics.get_unchecked(1).get_payload() == topic_repaid.get_payload()
+            })
+            .expect("loan_repaid event not emitted");
+
+        let (event_borrower, event_amount): (Address, i128) = data.into_val(&env);
+        assert_eq!(event_borrower, borrower);
+        assert_eq!(event_amount, 500_000);
+    }
+
+    #[test]
     fn test_slash_burns_half_stake() {
         let env = Env::default();
         let (contract_id, token_addr, admin, borrower, voucher) = setup(&env);
@@ -3022,6 +3061,11 @@ mod tests {
         assert_eq!(client.get_reputation(&borrower), 0);
     }
 
+
+    // ── Config Tests ──────────────────────────────────────────────────────────
+
+
+
     #[test]
     fn test_get_config_returns_defaults() {
         let env = Env::default();
@@ -3118,7 +3162,8 @@ mod tests {
         client.request_loan(&borrower, &Vec::new(&env), &500_000, &1_000_000);
         client.slash(&borrower);
 
-        assert_eq!(client.get_reputation(&borrower), 0);
+        // voucher started with 10_000_000, staked 1_000_000, gets back 750_000
+        assert_eq!(token.balance(&voucher), 9_750_000);
     }
 
     #[test]
@@ -3129,6 +3174,8 @@ mod tests {
 
         // No NFT contract configured — should return 0 gracefully.
         assert_eq!(client.get_reputation(&borrower), 0);
+
+
     }
 
     // ── Repayment Count Tests ─────────────────────────────────────────────────
@@ -3365,6 +3412,7 @@ mod tests {
         client.set_config(&cfg);
 
         assert_eq!(client.get_config().slash_bps, 10_000);
+
     }
 
     // ── Reentrancy Protection Tests (repay) ───────────────────────────────────
