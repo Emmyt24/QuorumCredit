@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token, Address, BytesN, Env,
     Vec,
 };
 
@@ -243,7 +243,7 @@ impl QuorumCreditContract {
                 .persistent()
                 .get(&DataKey::LastVouchTimestamp(voucher.clone()))
                 .unwrap_or(0);
-            if now < last + cfg.vouch_cooldown_secs {
+            if last > 0 && now < last + cfg.vouch_cooldown_secs {
                 return Err(ContractError::VouchCooldownActive);
             }
         }
@@ -906,6 +906,21 @@ impl QuorumCreditContract {
             .instance()
             .get(&DataKey::MinVouchers)
             .unwrap_or(0)
+    }
+
+    /// Admin sets the maximum number of vouchers allowed per loan.
+    /// Prevents unbounded voucher lists that could exhaust ledger gas in repay/slash loops.
+    pub fn set_max_vouchers_per_loan(env: Env, admin_signers: Vec<Address>, max: u32) {
+        Self::require_admin_approval(&env, &admin_signers);
+        assert!(max > 0, "max_vouchers_per_loan must be greater than zero");
+        let mut cfg = Self::config(&env);
+        cfg.max_vouchers = max;
+        env.storage().instance().set(&DataKey::Config, &cfg);
+    }
+
+    /// Returns the current maximum vouchers per loan cap.
+    pub fn get_max_vouchers_per_loan(env: Env) -> u32 {
+        Self::config(&env).max_vouchers
     }
 
     /// Admin updates configurable protocol parameters.
@@ -1579,8 +1594,8 @@ mod tests {
         let client = QuorumCreditContractClient::new(&env, &contract_id);
         let token = TokenClient::new(&env, &token_addr);
 
-        client.vouch(&voucher, &borrower, &50);
-        client.request_loan(&borrower, &Vec::new(&env), &100_000, &50);
+        client.vouch(&voucher, &borrower, &1_000_000);
+        client.request_loan(&borrower, &Vec::new(&env), &100_000, &1_000_000);
         client.repay(&borrower, &100_000);
 
         let initial_balance: i128 = 10_000_000;
@@ -2787,7 +2802,57 @@ mod tests {
         assert!(client.get_loan_pool(&999u64).is_none());
     }
 
-    // ── Rate Limiting: vouch cooldown ─────────────────────────────────────────
+    // ── Voucher Cap Tests ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_get_max_vouchers_per_loan_returns_default() {
+        let env = Env::default();
+        let (contract_id, _, _, _, _) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+        assert_eq!(client.get_max_vouchers_per_loan(), DEFAULT_MAX_VOUCHERS);
+    }
+
+    #[test]
+    fn test_set_max_vouchers_per_loan_and_get() {
+        let env = Env::default();
+        let (contract_id, _, admin, _, _) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+        let admin_signers = single_admin_signers(&env, &admin);
+        client.set_max_vouchers_per_loan(&admin_signers, &5);
+        assert_eq!(client.get_max_vouchers_per_loan(), 5);
+    }
+
+    #[test]
+    fn test_vouch_rejected_when_cap_reached() {
+        let env = Env::default();
+        let (contract_id, token_addr, admin, borrower, _) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+        let token_admin = StellarAssetClient::new(&env, &token_addr);
+        let admin_signers = single_admin_signers(&env, &admin);
+
+        client.set_max_vouchers_per_loan(&admin_signers, &2);
+
+        for _ in 0..2 {
+            let v = Address::generate(&env);
+            token_admin.mint(&v, &1_000_000);
+            client.vouch(&v, &borrower, &1_000_000);
+        }
+
+        let extra = Address::generate(&env);
+        token_admin.mint(&extra, &1_000_000);
+        // try_vouch returns Err on panic (host error), not a ContractError variant
+        assert!(client.try_vouch(&extra, &borrower, &1_000_000).is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "max_vouchers_per_loan must be greater than zero")]
+    fn test_set_max_vouchers_per_loan_zero_rejected() {
+        let env = Env::default();
+        let (contract_id, _, admin, _, _) = setup(&env);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+        let admin_signers = single_admin_signers(&env, &admin);
+        client.set_max_vouchers_per_loan(&admin_signers, &0);
+    }
 
     #[test]
     fn test_vouch_cooldown_blocks_second_vouch_within_window() {
