@@ -59,7 +59,7 @@ impl QuorumCreditContract {
                 token,
                 yield_bps: DEFAULT_YIELD_BPS,
                 slash_bps: DEFAULT_SLASH_BPS,
-                max_vouchers: DEFAULT_MAX_VOUCHERS,
+                max_vouchers_per_loan: DEFAULT_MAX_VOUCHERS,
                 min_loan_amount: DEFAULT_MIN_LOAN_AMOUNT,
                 loan_duration: DEFAULT_LOAN_DURATION,
                 max_loan_to_stake_ratio: DEFAULT_MAX_LOAN_TO_STAKE_RATIO,
@@ -131,7 +131,7 @@ impl QuorumCreditContract {
         }
 
         assert!(
-            vouches.len() < cfg.max_vouchers,
+            vouches.len() < cfg.max_vouchers_per_loan,
             "maximum vouchers per loan exceeded"
         );
 
@@ -783,13 +783,13 @@ impl QuorumCreditContract {
         Self::require_admin_approval(&env, &admin_signers);
         assert!(max > 0, "max_vouchers_per_loan must be greater than zero");
         let mut cfg = Self::config(&env);
-        cfg.max_vouchers = max;
+        cfg.max_vouchers_per_loan = max;
         env.storage().instance().set(&DataKey::Config, &cfg);
     }
 
     /// Returns the current maximum vouchers per loan cap.
     pub fn get_max_vouchers_per_loan(env: Env) -> u32 {
-        Self::config(&env).max_vouchers
+        Self::config(&env).max_vouchers_per_loan
     }
 
     /// Admin updates configurable protocol parameters.
@@ -800,7 +800,7 @@ impl QuorumCreditContract {
             config.slash_bps > 0 && config.slash_bps <= 10_000,
             "slash_bps must be 1-10000"
         );
-        assert!(config.max_vouchers > 0, "max_vouchers must be greater than zero");
+        assert!(config.max_vouchers_per_loan > 0, "max_vouchers_per_loan must be greater than zero");
         assert!(config.min_loan_amount > 0, "min_loan_amount must be greater than zero");
         assert!(config.loan_duration > 0, "loan_duration must be greater than zero");
         assert!(
@@ -808,6 +808,15 @@ impl QuorumCreditContract {
             "max_loan_to_stake_ratio must be greater than zero"
         );
         Self::validate_admin_config(&config.admins, config.admin_threshold);
+
+        let old_config = Self::config(&env);
+        if old_config.admins != config.admins {
+            env.events().publish(
+                (symbol_short!("admin"), symbol_short!("changed")),
+                (old_config.admins.clone(), config.admins.clone()),
+            );
+        }
+
         env.storage().instance().set(&DataKey::Config, &config);
     }
 
