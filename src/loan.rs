@@ -66,10 +66,9 @@ pub fn request_loan(
 
     let cfg = config(&env);
 
-    assert!(
-        amount >= cfg.min_loan_amount,
-        "loan amount must meet minimum threshold"
-    );
+    if amount < cfg.min_loan_amount {
+        return Err(ContractError::LoanBelowMinAmount);
+    }
     assert!(threshold > 0, "threshold must be greater than zero");
 
     let max_loan_amount: i128 = env
