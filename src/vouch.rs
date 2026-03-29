@@ -187,7 +187,13 @@ pub fn increase_stake(
 
     env.storage()
         .persistent()
-        .set(&DataKey::Vouches(borrower), &vouches);
+        .set(&DataKey::Vouches(borrower.clone()), &vouches);
+
+    // Issue #370: Emit event for stake increase
+    env.events().publish(
+        (symbol_short!("vouch"), symbol_short!("increased")),
+        (voucher, borrower, additional),
+    );
 
     Ok(())
 }
@@ -565,5 +571,43 @@ mod tests {
         // Attempt to vouch for blacklisted borrower should fail
         let result = client.try_vouch(&voucher, &borrower, &stake, &token);
         assert_eq!(result, Err(Ok(ContractError::Blacklisted)));
+    }
+
+    /// Issue #370: increase_stake emits an event.
+    #[test]
+    fn test_increase_stake_emits_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, QuorumCreditContract);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+
+        let deployer = Address::generate(&env);
+        let admin = create_test_admin(&env);
+        let admins = Vec::from_array(&env, [admin]);
+        let token = create_test_token(&env);
+
+        client.initialize(&deployer, &admins, &1, &token);
+
+        let voucher = Address::generate(&env);
+        let borrower = Address::generate(&env);
+
+        // Initial vouch
+        client.vouch(&voucher, &borrower, &1_000_000, &token);
+
+        // Clear events from initial vouch
+        env.events().all();
+
+        // Increase stake
+        client.increase_stake(&voucher, &borrower, &500_000);
+
+        // Check that event was emitted
+        let events = env.events().all();
+        assert!(!events.is_empty());
+        
+        // Verify the event contains the expected data
+        let last_event = events.last().unwrap();
+        assert_eq!(last_event.0.get(0).unwrap().to_string(), "vouch");
+        assert_eq!(last_event.0.get(1).unwrap().to_string(), "increased");
     }
 }
