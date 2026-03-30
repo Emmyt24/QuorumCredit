@@ -212,13 +212,14 @@ pub fn repay(env: Env, borrower: Address, payment: i128) -> Result<(), ContractE
 
     let mut loan = get_active_loan_record(&env, &borrower)?;
 
+    if borrower != loan.borrower {
+        return Err(ContractError::UnauthorizedCaller);
+    }
+
     for cb in loan.co_borrowers.iter() {
         cb.require_auth();
     }
 
-    if borrower != loan.borrower {
-        return Err(ContractError::UnauthorizedCaller);
-    }
     if loan.status != LoanStatus::Active {
         return Err(ContractError::NoActiveLoan);
     }
