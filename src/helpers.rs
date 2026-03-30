@@ -47,6 +47,12 @@ pub fn config(env: &Env) -> Config {
         .expect("not initialized")
 }
 
+/// Returns the list of registered admin addresses from config storage.
+/// Use this instead of inline `config(env).admins` reads.
+pub fn get_admins(env: &Env) -> soroban_sdk::Vec<Address> {
+    config(env).admins
+}
+
 pub fn add_slash_balance(env: &Env, amount: i128) {
     let current: i128 = env
         .storage()
