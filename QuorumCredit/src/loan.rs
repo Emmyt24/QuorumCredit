@@ -1,7 +1,7 @@
 use crate::errors::ContractError;
 use crate::helpers::{
-    bps_of, config, extend_ttl, get_active_loan_record, get_slash_balance, has_active_loan, next_loan_id,
-    require_allowed_token, require_not_paused, validate_loan_active,
+    bps_of, config, extend_ttl, get_active_loan_record, get_slash_balance, has_active_loan,
+    next_loan_id, require_allowed_token, require_not_paused, validate_loan_active,
 };
 use crate::reputation::ReputationNftExternalClient;
 use crate::types::{

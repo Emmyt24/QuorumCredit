@@ -33,7 +33,13 @@ mod referral_tests {
 
         env.ledger().with_mut(|l| l.timestamp = 120);
 
-        Setup { env, client, contract_id, token: token_id.address(), admin }
+        Setup {
+            env,
+            client,
+            contract_id,
+            token: token_id.address(),
+            admin,
+        }
     }
 
     fn do_vouch(s: &Setup, voucher: &Address, borrower: &Address, stake: i128) {
@@ -70,8 +76,7 @@ mod referral_tests {
         s.client.repay(&borrower, &102_000);
 
         // Referral bonus = 1% of 100_000 = 1_000.
-        let referrer_balance = TokenClient::new(&s.env, &s.token)
-            .balance(&referrer);
+        let referrer_balance = TokenClient::new(&s.env, &s.token).balance(&referrer);
         assert_eq!(referrer_balance, 1_000);
     }
 
@@ -134,8 +139,7 @@ mod referral_tests {
         s.client.repay(&borrower, &102_000);
 
         // 2% of 100_000 = 2_000.
-        let referrer_balance = TokenClient::new(&s.env, &s.token)
-            .balance(&referrer);
+        let referrer_balance = TokenClient::new(&s.env, &s.token).balance(&referrer);
         assert_eq!(referrer_balance, 2_000);
     }
 }

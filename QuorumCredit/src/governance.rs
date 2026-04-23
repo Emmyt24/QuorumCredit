@@ -83,8 +83,8 @@ pub fn vote_slash(
         .get(&DataKey::SlashVoteQuorum)
         .unwrap_or(DEFAULT_SLASH_VOTE_QUORUM_BPS);
 
-    let quorum_reached = total_stake > 0
-        && vote.approve_stake * 10_000 / total_stake >= quorum_bps as i128;
+    let quorum_reached =
+        total_stake > 0 && vote.approve_stake * 10_000 / total_stake >= quorum_bps as i128;
 
     if quorum_reached {
         vote.executed = true;
@@ -246,10 +246,7 @@ pub fn propose_slash(
 }
 
 /// Execute a previously proposed slash action after the delay has passed.
-pub fn execute_slash_proposal(
-    env: Env,
-    proposal_id: u64,
-) -> Result<(), ContractError> {
+pub fn execute_slash_proposal(env: Env, proposal_id: u64) -> Result<(), ContractError> {
     require_not_paused(&env)?;
 
     // Get the proposal
@@ -342,4 +339,3 @@ pub fn get_timelock_proposal(env: Env, proposal_id: u64) -> Option<TimelockPropo
         .instance()
         .get(&DataKey::Timelock(proposal_id))
 }
-

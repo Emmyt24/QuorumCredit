@@ -32,13 +32,17 @@ mod double_repay_tests {
 
         env.ledger().with_mut(|l| l.timestamp = 120);
 
-        Setup { env, client, token: token_id.address() }
+        Setup {
+            env,
+            client,
+            token: token_id.address(),
+        }
     }
 
     fn do_vouch(s: &Setup, voucher: &Address, borrower: &Address, stake: i128) {
         StellarAssetClient::new(&s.env, &s.token).mint(voucher, &stake);
         s.client.vouch(voucher, borrower, &stake, &s.token);
-        
+
         // Advance time past MIN_VOUCH_AGE (60s) so the vouch is eligible.
         s.env.ledger().with_mut(|l| l.timestamp += 61);
     }

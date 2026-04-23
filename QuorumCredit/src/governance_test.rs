@@ -56,7 +56,13 @@ mod governance_tests {
     fn do_loan(s: &Setup, borrower: &Address, amount: i128, threshold: i128) {
         // Advance time to ensure vouches are old enough (MIN_VOUCH_AGE = 60s)
         s.env.ledger().with_mut(|l| l.timestamp = l.timestamp + 61);
-        s.client.request_loan(borrower, &amount, &threshold, &soroban_sdk::String::from_str(&s.env, "test loan"), &s.token_id);
+        s.client.request_loan(
+            borrower,
+            &amount,
+            &threshold,
+            &soroban_sdk::String::from_str(&s.env, "test loan"),
+            &s.token_id,
+        );
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -109,10 +115,7 @@ mod governance_tests {
 
         // First vote: 30% — not enough
         s.client.vote_slash(&voucher_a, &borrower, &true);
-        assert_eq!(
-            s.client.loan_status(&borrower),
-            crate::LoanStatus::Active
-        );
+        assert_eq!(s.client.loan_status(&borrower), crate::LoanStatus::Active);
 
         // Second vote: 30% + 30% = 60% ≥ 50% → slash fires
         s.client.vote_slash(&voucher_b, &borrower, &true);
@@ -135,10 +138,7 @@ mod governance_tests {
         s.client.vote_slash(&voucher_a, &borrower, &false);
 
         // Loan still active
-        assert_eq!(
-            s.client.loan_status(&borrower),
-            crate::LoanStatus::Active
-        );
+        assert_eq!(s.client.loan_status(&borrower), crate::LoanStatus::Active);
         let vote = s.client.get_slash_vote(&borrower).unwrap();
         assert!(!vote.executed);
         assert_eq!(vote.reject_stake, 600_000);

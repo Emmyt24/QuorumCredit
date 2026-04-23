@@ -37,7 +37,12 @@ mod config_bps_tests {
         // Advance past MIN_VOUCH_AGE.
         env.ledger().with_mut(|l| l.timestamp = 120);
 
-        Setup { env, client, admin, token: token.address() }
+        Setup {
+            env,
+            client,
+            admin,
+            token: token.address(),
+        }
     }
 
     fn do_vouch(s: &Setup, voucher: &Address, borrower: &Address, stake: i128) {
@@ -122,8 +127,7 @@ mod config_bps_tests {
         let expected_returned = stake * (10_000 - 2_000) / 10_000;
         let voucher_balance = token_balance(&s, &voucher);
         assert_eq!(
-            voucher_balance,
-            expected_returned,
+            voucher_balance, expected_returned,
             "voucher should lose only the slash_bps fraction defined in config"
         );
     }
@@ -140,7 +144,10 @@ mod config_bps_tests {
         do_vouch(&s, &v1, &b1, 1_000_000);
         do_loan(&s, &b1, 100_000, 1_000_000);
         let loan1 = s.client.get_loan(&b1).unwrap();
-        assert_eq!(loan1.total_yield, 2_000, "default yield_bps=200 → 2% of 100_000 = 2_000");
+        assert_eq!(
+            loan1.total_yield, 2_000,
+            "default yield_bps=200 → 2% of 100_000 = 2_000"
+        );
 
         // Update yield_bps to 500 (5%).
         set_bps(&s, 500, 5_000);
@@ -151,6 +158,9 @@ mod config_bps_tests {
         do_vouch(&s, &v2, &b2, 1_000_000);
         do_loan(&s, &b2, 100_000, 1_000_000);
         let loan2 = s.client.get_loan(&b2).unwrap();
-        assert_eq!(loan2.total_yield, 5_000, "updated yield_bps=500 → 5% of 100_000 = 5_000");
+        assert_eq!(
+            loan2.total_yield, 5_000,
+            "updated yield_bps=500 → 5% of 100_000 = 5_000"
+        );
     }
 }

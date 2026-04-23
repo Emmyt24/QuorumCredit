@@ -101,9 +101,7 @@ pub fn get_latest_loan_record(env: &Env, borrower: &Address) -> Option<LoanRecor
         .persistent()
         .get(&DataKey::LatestLoan(borrower.clone()))
     {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Loan(loan_id))
+        env.storage().persistent().get(&DataKey::Loan(loan_id))
     } else {
         None
     }
@@ -257,7 +255,9 @@ mod ttl_tests {
         let deployer = Address::generate(&env);
         let admin = Address::generate(&env);
         let admins = Vec::from_array(&env, [admin.clone()]);
-        let token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let token = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
 
         client.initialize(&deployer, &admins, &1, &token);
 

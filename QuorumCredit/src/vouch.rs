@@ -201,7 +201,10 @@ pub fn decrease_stake(
         .expect("vouch not found") as u32;
 
     let mut vouch_rec = vouches.get(idx).unwrap();
-    assert!(amount <= vouch_rec.amount, "decrease amount exceeds staked amount");
+    assert!(
+        amount <= vouch_rec.amount,
+        "decrease amount exceeds staked amount"
+    );
 
     let token_client = require_allowed_token(&env, &vouch_rec.token)?;
     vouch_rec.amount -= amount;
@@ -212,7 +215,9 @@ pub fn decrease_stake(
     }
 
     if vouches.is_empty() {
-        env.storage().persistent().remove(&DataKey::Vouches(borrower));
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Vouches(borrower));
     } else {
         env.storage()
             .persistent()

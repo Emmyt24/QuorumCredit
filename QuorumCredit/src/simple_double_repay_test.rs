@@ -33,7 +33,7 @@ mod simple_double_repay_test {
         // Setup vouch and fund contract
         StellarAssetClient::new(&env, &token_id.address()).mint(&voucher, &stake);
         client.vouch(&voucher, &borrower, &stake, &token_id.address());
-        
+
         // Advance time past MIN_VOUCH_AGE (60s) so the vouch is eligible.
         env.ledger().with_mut(|l| l.timestamp += 61);
 

@@ -14,6 +14,14 @@ pub mod types;
 pub mod vouch;
 
 #[cfg(test)]
+mod bug_condition_test;
+#[cfg(test)]
+mod config_bps_test;
+#[cfg(test)]
+mod double_repay_test;
+#[cfg(test)]
+mod duplicate_loan_test;
+#[cfg(test)]
 mod governance_test;
 #[cfg(test)]
 mod initialize_test;
@@ -26,19 +34,11 @@ mod referral_test;
 #[cfg(test)]
 mod request_loan_insufficient_stake_test;
 #[cfg(test)]
-mod vouch_zero_stake_test;
-#[cfg(test)]
 mod security_fixes_test;
 #[cfg(test)]
-mod bug_condition_test;
-#[cfg(test)]
-mod duplicate_loan_test;
-#[cfg(test)]
-mod double_repay_test;
-#[cfg(test)]
-mod config_bps_test;
-#[cfg(test)]
 mod simple_double_repay_test;
+#[cfg(test)]
+mod vouch_zero_stake_test;
 
 pub use errors::ContractError;
 pub use types::*;

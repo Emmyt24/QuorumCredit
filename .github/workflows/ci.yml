@@ -39,6 +39,7 @@ jobs:
       
       - name: Run tests
         run: cargo test --verbose
+        working-directory: QuorumCredit
 
   clippy:
     name: Clippy
@@ -71,6 +72,7 @@ jobs:
       
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: QuorumCredit
 
   fmt:
     name: Format
@@ -85,3 +87,4 @@ jobs:
       
       - name: Check formatting
         run: cargo fmt --all -- --check
+        working-directory: QuorumCredit
