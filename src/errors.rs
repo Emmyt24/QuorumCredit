@@ -44,4 +44,6 @@ pub enum ContractError {
     MaxVouchersPerBorrowerExceeded = 35,
     /// Voucher has insufficient balance to stake the requested amount.
     InsufficientVoucherBalance = 36,
+    /// Voucher and borrower must be different addresses.
+    SelfVouchNotAllowed = 37,
 }

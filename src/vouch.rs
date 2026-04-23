@@ -242,6 +242,9 @@ pub fn decrease_stake(
     voucher.require_auth();
     require_not_paused(&env)?;
 
+    if voucher == borrower {
+        return Err(ContractError::SelfVouchNotAllowed);
+    }
     if amount <= 0 {
         panic_with_error!(&env, ContractError::InvalidAmount);
     }
@@ -704,5 +707,27 @@ mod tests {
         // Whitelist is disabled by default, so any voucher can vouch
         let result = client.try_vouch(&voucher, &borrower, &stake, &token);
         assert!(result.is_ok());
+    }
+
+    /// Issue #442: decrease_stake() must reject self-vouch (voucher == borrower)
+    #[test]
+    fn test_decrease_stake_self_vouch_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, QuorumCreditContract);
+        let client = QuorumCreditContractClient::new(&env, &contract_id);
+
+        let deployer = Address::generate(&env);
+        let admin = create_test_admin(&env);
+        let admins = Vec::from_array(&env, [admin.clone()]);
+        let token = create_test_token(&env);
+
+        client.initialize(&deployer, &admins, &1, &token);
+
+        let user = Address::generate(&env);
+
+        let result = client.try_decrease_stake(&user, &user, &1_000);
+        assert_eq!(result, Err(Ok(ContractError::SelfVouchNotAllowed)));
     }
 }
